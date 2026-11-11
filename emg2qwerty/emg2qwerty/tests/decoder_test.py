@@ -8,16 +8,31 @@ import hashlib
 from collections import OrderedDict
 from pathlib import Path
 
+import numpy as np
 import pytest
-kenlm = pytest.importorskip("kenlm")
 import scipy.special
-from hypothesis import given, strategies as st
+try:
+    from hypothesis import given, strategies as st
+    has_hypothesis = True
+except ImportError:
+    has_hypothesis = False
+    given = lambda *a, **k: lambda f: f
+    class _MockSt:
+        def __getattr__(self, name):
+            return lambda *a, **k: None
+    st = _MockSt()
+
+try:
+    import kenlm
+except ImportError:
+    kenlm = None
 
 from emg2qwerty.charset import CharacterSet, charset
 from emg2qwerty.data import LabelData
 from emg2qwerty.decoder import BeamState, CTCBeamDecoder, CTCGreedyDecoder, logsumexp
 
 
+@pytest.mark.skipif(not has_hypothesis, reason="hypothesis not installed")
 @given(xs=st.lists(st.floats(max_value=10, allow_infinity=True), min_size=1))
 def test_logsumexp(xs: list[float]):
     actual = logsumexp(*xs)
@@ -139,6 +154,7 @@ def test_beamstate_no_lm():
         assert state.hash().digest() == prev_state.hash(label).digest()
 
 
+@pytest.mark.skipif(kenlm is None, reason="kenlm is optional and not installed")
 def test_beamstate_lm():
     """Test BeamState with LM."""
     _charset = charset()
@@ -197,6 +213,7 @@ def test_beamstate_lm():
     assert abs(sum(state.lm_scores) - expected_lm_score) < 1e-4
 
 
+@pytest.mark.skipif(kenlm is None, reason="kenlm is optional and not installed")
 def test_beamstate_multiple_paths():
     """Test `BeamState` and `TrieNode` operations when several paths
     lead to same decoding.
@@ -242,6 +259,7 @@ def test_beamstate_multiple_paths():
     assert state2.timestamps == [0, 6]
 
 
+@pytest.mark.skipif(kenlm is None, reason="kenlm is optional and not installed")
 def test_timestamps():
     """Test that the decoder tracks onset timestamps correctly despite
     several paths leading to the same decoding.
@@ -302,6 +320,7 @@ def test_timestamps():
     assert list(decoding.timestamps) == [0, 2]  # type: ignore
 
 
+@pytest.mark.skipif(kenlm is None, reason="kenlm is optional and not installed")
 @given(
     num_deletes=st.integers(0, 20),
     lm_weight=st.sampled_from([0.0, 0.5, 1.0]),
