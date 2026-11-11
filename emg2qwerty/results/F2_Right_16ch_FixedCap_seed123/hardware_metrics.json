@@ -1,0 +1,11 @@
+{
+  "experiment_id": "F2_Right_16ch_FixedCap",
+  "seed": 123,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1077.874787569046,
+  "training_time_minutes": 17.964579792817435,
+  "peak_vram_mb": 1049.00439453125,
+  "completed_at": "2026-11-11 00:17:58"
+}

@@ -1,0 +1,30 @@
+# Environments
+venv/
+.venv/
+env/
+*.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+
+# Large Datasets (>100MB exceeds GitHub hard limit of 100MB)
+# Download raw dataset via: python emg2qwerty/scripts/download_single_user.py
+**/data/
+**/*.hdf5
+bids_data/
+*.tar.gz
+
+# Model Training Checkpoints (>50MB, available in GitHub Releases & ECE147_Final_Project_Complete.zip)
+results/**/checkpoints/
+
+# IDE and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

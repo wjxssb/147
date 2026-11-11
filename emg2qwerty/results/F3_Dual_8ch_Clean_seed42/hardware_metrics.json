@@ -1,0 +1,11 @@
+{
+  "experiment_id": "F3_Dual_8ch_Clean",
+  "seed": 42,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1086.929827928543,
+  "training_time_minutes": 18.115497132142384,
+  "peak_vram_mb": 1047.8818359375,
+  "completed_at": "2026-11-11 01:13:54"
+}

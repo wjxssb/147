@@ -1,0 +1,11 @@
+{
+  "experiment_id": "C3_Dual_8ch",
+  "seed": 42,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1030.9629504680634,
+  "training_time_minutes": 17.18271584113439,
+  "peak_vram_mb": 947.2900390625,
+  "completed_at": "2026-11-10 07:58:31"
+}

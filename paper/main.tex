@@ -1,0 +1,255 @@
+\documentclass{article}
+
+% NeurIPS 2024 style file (final camera-ready version)
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{multirow}
+
+\title{Bilateral Spatial Coverage Matters More Than Electrode Density in Continuous sEMG Typing Decoding}
+
+\author{
+  Frank \\
+  Department of Electrical and Computer Engineering\\
+  University of California, Los Angeles\\
+  Los Angeles, CA 90095 \\
+  \texttt{frank@ucla.edu} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Continuous touch-typing decoding from surface electromyography (sEMG) offers a viable path toward silent text entry and wearable computing. Using the benchmark subject (\#89335547, 18 recording sessions) from Meta's \texttt{emg2qwerty} dataset, we evaluate temporal sequence architectures, electrode spatial placement, and cross-session stability. Our findings indicate three main results:
+(1) Under the baseline training protocol, the official Time-Depth Separable CNN (TDS-CNN, 5.3M parameters) and a parameter-matched hybrid CNN-BiGRU-CTC model (5.4M parameters) reach comparable validation character error rates ($19.20 \pm 0.32\%$ vs.\ $19.34 \pm 0.19\%$ CER across three seeds, $\text{ddof}=1$). Although the BiGRU attains lower CTC loss and substitution rates, it requires $\sim 24\%$ longer training time and sequential inference runtime without yielding an overall CER advantage.
+(2) Holding active electrodes constant at 16 channels and nominal capacity at 5.4M parameters through leak-free channel masking, a bilateral distribution ($8\text{L}+8\text{R}$, F3 Clean) achieves $20.13 \pm 0.64\%$ validation CER, consistently outperforming unilateral arrays ($52.89 \pm 3.62\%$ for left-only F1 Clean, $47.08 \pm 2.42\%$ for right-only F2 Clean). Paired comparisons against a full 32-channel baseline ($17.96 \pm 0.37\%$) indicate that halving physical sensors bilaterally incurs an average penalty of $+2.17 \pm 0.65$ percentage points, whereas concentrating the same 16 channels on one wrist leads to severe omission of contralateral keypresses ($89.29\%$--$92.95\%$ conditional CER).
+(3) On held-out recording sessions, 32-channel and 16-channel bilateral arrays maintain stable test performance ($21.05\%$--$25.29\%$ CER), whereas an ultra-sparse $4+4$ array (C4) degrades from $27.49\%$ validation CER to $33.67\%$ test CER ($+6.18\%$ gap), highlighting an empirical stability limit for sparse arrays under this recording protocol.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Predicting continuous keystroke sequences from surface electromyography (sEMG) presents notable challenges in biosignal processing and sequence modeling. Unlike discrete gesture recognition, continuous touch typing involves rapid, asynchronous muscle activations across deep and superficial forearm compartments, coupled with electrode impedance drift, fatigue, and keystroke co-articulation.
+
+While Meta's benchmark study \citep{sivakumar2024emg2qwerty} establishes a Time-Depth Separable CNN (TDS-CNN) baseline, several practical modeling questions remain open:
+\begin{enumerate}
+    \item \textbf{Architectural Inductive Bias vs.\ Practical Efficiency}: How do bidirectional recurrent models compare with stacked 1D temporal depthwise convolutions in loss convergence, error profiles, and inference complexity?
+    \item \textbf{Bilateral Spatial Coverage vs.\ Sensor Density}: Given a fixed 16-channel hardware budget, how does bilateral spatial placement compare against dense unilateral sensing when nominal model capacity is matched?
+    \item \textbf{Cross-Session Generalization in Sparse \& Masked Arrays}: How reliably do sparse arrays ($4+4$ channels) and different sensor decimation strategies (physical slicing versus zero-masking) generalize across independent recording sessions?
+\end{enumerate}
+
+Working with the designated single-user benchmark (\#89335547, 18 recording sessions), this work makes four specific contributions:
+\begin{itemize}
+    \item \textbf{Architectural Comparison}: We implement a modular CNN-BiGRU-CTC model ($5.4\text{M}$ parameters) with packed-sequence padding protection to match the $5.3\text{M}$ TDS-CNN baseline. Across three random seeds, both models achieve comparable validation accuracy ($19.20 \pm 0.32\%$ vs.\ $19.34 \pm 0.19\%$ CER), while TDS-CNN trains $\sim 24\%$ faster and supports streaming inference.
+    \item \textbf{Spatial Distribution vs.\ Sensor Density}: Using parameter-matched masked retraining ($5{,}422{,}944$ parameters), we show that a bilateral distribution ($8\text{L}+8\text{R}$, F3 Clean: $20.13 \pm 0.64\%$ CER) substantially outperforms unilateral 16-channel arrays ($47.08\%$--$52.89\%$ CER). Unilateral arrays exhibit an observed information limitation on contralateral keys, dropping most opposite-hand characters as deletions. Furthermore, halving the sensor budget bilaterally ($32 \to 16$ channels) costs $+2.17 \pm 0.65$ percentage points under matched rotation-free protocols.
+    \item \textbf{CTC Alignment Auditing}: We formalize the duplicate-character alignment condition $T_{\text{out}} \ge L + R$ and build an automated verification check, confirming that temporal preservation ($T_{\text{diff}} = 0$) prevents structural alignment failure.
+    \item \textbf{Cross-Session Evaluation}: Evaluating across recording sessions demonstrates that bilateral 8+8 coverage offers an empirical stability threshold for this subject, whereas reducing density to 4+4 channels leads to a $+6.18\%$ CER generalization gap.
+\end{itemize}
+
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Signal Preprocessing and Spatial Feature Frontend}
+Each experimental recording contains synchronized 16-channel sEMG signals from the participant's left and right forearms sampled at $f_s = 2{,}000\text{ Hz}$. Input temporal windows of length $W = 8{,}000$ samples ($4.0\text{ s}$) are transformed into the frequency domain via a Short-Time Fourier Transform (STFT):
+\begin{equation}
+    X_{\text{spec}}[t, b, c, f] = \log_{10} \left( \left| \text{STFT}(x[n, b, c]; n_{\text{fft}}=64, \text{hop}=16) \right|^2 + \epsilon \right)
+\end{equation}
+where $b \in \{1, \dots, B\}$ denotes wrist bands ($B=2$ for dual-wrist, $B=1$ for single-wrist), $c \in \{1, \dots, C\}$ denotes active electrode channels per band, and $f \in \{1, \dots, 33\}$ represents discrete frequency bins ($n_{\text{fft}} / 2 + 1$). The hop length of $16$ samples converts the raw $2\text{ kHz}$ signal to a feature frame rate of $f_{\text{frame}} = 125\text{ Hz}$ ($\Delta t = 8\text{ ms}$).
+
+The spectrogram is normalized across frequency bins via channel-wise running statistics (\texttt{SpectrogramNorm}). To provide physical invariance against minor band rotation around the forearm during typing, a shared Multi-Layer Perceptron (\texttt{MultiBandRotationInvariantMLP}) projects the $C \times 33$ spectral features per band into an embedding space of dimension $d_{\text{mlp}} = 384$:
+\begin{equation}
+    h_{\text{frontend}} = \text{Concat}\Big( \big[ \text{MLP}(X_{\text{spec}}[:, b, :, :]) \big]_{b=1}^B \Big) \in \mathbb{R}^{T \times N \times (B \cdot 384)}
+\end{equation}
+For $B=2$, the concatenated temporal feature representation has dimension $D_{\text{in}} = 768$. For $B=1$, $D_{\text{in}} = 384$.
+
+\subsection{Architectures: TDS-CNN Baseline vs. CNN-BiGRU-CTC}
+
+\paragraph{Baseline TDS-CNN}:
+The baseline model \citep{sivakumar2024emg2qwerty} employs four Time-Depth Separable (TDS) convolutional blocks. Each block comprises a 2D depthwise convolution over time and channel features, followed by a $1\times 1$ pointwise convolution, LayerNorm, and GELU activations. With kernel width $K=32$ across four blocks, the theoretical temporal receptive field is $125$ frames ($1.0\text{ s}$).
+
+\paragraph{Proposed CNN-BiGRU-CTC}:
+To evaluate recurrent temporal context alongside convolutional features, our proposed architecture replaces the TDS blocks with a hybrid convolutional-recurrent pipeline:
+\begin{enumerate}
+    \item \textbf{Local Feature Refinement}: A 1D convolutional layer ($\text{kernel}=3, \text{stride}=1, \text{padding}=1$) processes the temporal frame sequence to smooth local jitter, followed by Layer Normalization and GELU.
+    \item \textbf{Bidirectional Recurrent Context}: A 2-layer Bidirectional GRU with hidden dimension $d_h = 256$ per direction (total hidden size $512$) extracts forward and backward state trajectories:
+    \begin{equation}
+        \vec{h}_t = \text{GRU}_{\text{fwd}}(x_t, \vec{h}_{t-1}), \quad \overleftarrow{h}_t = \text{GRU}_{\text{bwd}}(x_t, \overleftarrow{h}_{t+1}), \quad h_t = [\vec{h}_t; \overleftarrow{h}_t]
+    \end{equation}
+    For variable-length batches, inputs are packed using PyTorch \texttt{pack\_padded\_sequence} prior to the recurrent layers and restored via \texttt{pad\_packed\_sequence}. This prevents backward recurrent states from absorbing zero-padded trailing frames.
+    \item \textbf{Residual Projection \& Classification Head}: A linear projection layer maps the $512$-dimensional bidirectional states back to $D_{\text{in}}$, followed by a residual addition with pre-GRU features, LayerNorm, and a final linear projection to $|\mathcal{C}| = 96$ output character classes with LogSoftmax.
+\end{enumerate}
+
+\subsection{CTC Loss and Minimum Legal Sequence Length}
+Given output log-probability emissions $\hat{y} \in \mathbb{R}^{T_{\text{out}} \times |\mathcal{C}|}$ and target sequence $y = (y_1, \dots, y_L)$, Connectionist Temporal Classification (CTC) optimizes the negative log marginal probability over all valid alignments $\pi \in \mathcal{B}^{-1}(y)$:
+\begin{equation}
+    \mathcal{L}_{\text{CTC}} = -\ln \sum_{\pi \in \mathcal{B}^{-1}(y)} \prod_{t=1}^{T_{\text{out}}} P(\pi_t | x)
+\end{equation}
+where $\mathcal{B}$ is the collapse operator that merges adjacent identical labels and deletes blank tokens ($\epsilon$). 
+
+\paragraph{Duplicate Character Alignment Bound}:
+Because two identical consecutive target characters $y_k = y_{k+1}$ must be separated by at least one blank token ($\epsilon$) to avoid being collapsed by $\mathcal{B}$, any valid alignment $\pi$ must allocate at least two emission frames for each consecutive duplicate. Consequently, if target sequence $y$ contains $L$ characters and $R = \sum_{k=1}^{L-1} \mathbb{I}(y_k = y_{k+1})$ duplicate pairs, a mathematically valid CTC alignment exists if and only if:
+\begin{equation}
+    T_{\text{out}} \ge L + R
+\end{equation}
+If $T_{\text{out}} < L + R$, the set $\mathcal{B}^{-1}(y) = \emptyset$, forcing $\mathcal{L}_{\text{CTC}} \to \infty$. In our implementation, we enforce padding invariance such that $T_{\text{diff}} = T_{\text{in}} - T_{\text{out}} = 0$, ensuring that temporal length is strictly preserved through the encoder, and verify $T_{\text{out}} \ge L + R$ at runtime across all mini-batches.
+
+\subsection{Physical Electrode Decimation and Fixed-Capacity Masking}
+To evaluate hardware minimalism and spatial electrode placement, we investigate two decimation methodologies:
+\begin{enumerate}
+    \item \textbf{Physical Channel Slicing (C1--C4)}: In C1 (16L) and C2 (16R), only one forearm band is fed to the model ($B=1, C=16, D_{\text{in}}=384$, resulting in $3.1\text{M}$ parameters). In C3 (8L+8R) and C4 (4L+4R), electrodes are spatially downsampled to 8 and 4 channels per wrist ($D_{\text{in}}=768$, $5.3\text{M}$ and $5.2\text{M}$ parameters).
+    \item \textbf{Fixed-Capacity Masked Retraining (F1--F3)}: To eliminate nominal network capacity as a confounding factor, F1, F2, and F3 utilize the exact identical $5{,}422{,}944$-parameter CNN-BiGRU backbone ($B=2, C=16, D_{\text{in}}=768$). Inactive bands or electrodes are zero-masked in the raw time domain via \texttt{MaskChannels}:
+    \begin{itemize}
+        \item \textbf{F1 (Left-16 Fixed-Cap)}: Right wristband masked to zero ($\text{keep\_bands}=[0]$).
+        \item \textbf{F2 (Right-16 Fixed-Cap)}: Left wristband masked to zero ($\text{keep\_bands}=[1]$).
+        \item \textbf{F3 (Dual-8+8 Fixed-Cap)}: Alternating electrodes masked to zero ($\text{keep\_electrodes}=[0, 2, 4, 6, 8, 10, 12, 14]$).
+    \end{itemize}
+    To prevent electrode leakage during data augmentation, \texttt{MaskChannels} is applied immediately following tensor loading prior to any subsequent transforms, and spatial band rotation is explicitly disabled for masked controls ($\text{offsets}=[0]$). Automated invariance testing confirms that perturbing excluded physical channels produces zero change ($0.00e+00$ absolute error) in output logits. We note that while F1--F3 possess identical nominal parameter counts ($5{,}422{,}944$), zero-masking suppresses input activations into specific sub-networks, altering the effective computational path relative to physical decimation.
+\end{enumerate}
+
+\section{Experimental Setup}
+\label{sec:setup}
+All models are trained on the designated course subject (\#89335547) comprising 16 training sessions ($3{,}840$ windowed segments), 1 validation session ($224$ segments), and 1 test session. Models are trained with Adam ($\text{lr} = 10^{-3}$, $\beta_1=0.9, \beta_2=0.999$) with a linear warmup of 5 epochs followed by cosine annealing decay to $\eta_{\text{min}} = 10^{-6}$ over 35 epochs total. Gradient clipping is enforced at $\|\mathbf{g}\|_2 \le 1.0$, and early stopping monitors validation CER with a patience of 8 epochs. All experiments execute on an NVIDIA Tesla V100-SXM2-16GB GPU with mini-batch size $16$.
+
+\paragraph{Protocol \& Test Set Evaluation Timeline Disclosure}:
+To maintain methodological transparency, we explicitly disclose the chronological timeline of test set usage: initial evaluation on the isolated test session (Session 2021-06-02-1622682789, $2{,}252{,}161$ samples, $4{,}627$ reference characters) was executed once models A0--C4 were completed. Subsequent parameter-matched control models (F1--F3) were trained with hyperparameters and early stopping monitored strictly on the validation set (Session 2021-06-04-1622862148), with test set evaluations performed post-hoc for completeness and verification. All model selection, architectural inferences, and stability evaluations are grounded solely on validation metrics.
+
+\section{Results}
+\label{sec:results}
+
+\begin{table}[t]
+\centering
+\caption{Comprehensive experimental results on Subject \#89335547. Evaluation is conducted across validation and strictly isolated frozen test sets. Hardware profiling reflects training on an NVIDIA Tesla V100-SXM2 GPU. Rows A1-Clean and F1--F3-Clean reflect the unconfounded rotation-free benchmark protocol (3-seed Mean $\pm$ Sample Std, $\text{ddof}=1$), with test sets unobserved to preserve evaluation isolation.}
+\label{tab:main_results}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccccccc}
+\toprule
+\textbf{Exp ID} & \textbf{Configuration} & \textbf{Channels} & \textbf{Val Loss} & \textbf{Test Loss} & \textbf{Val CER (\%)} & \textbf{Test CER (\%)} & \textbf{Sub (\%)} & \textbf{Del (\%)} & \textbf{Params} & \textbf{Time} \\
+\midrule
+\textbf{A0} & TDS-CNN Baseline & 32 (2$\times$16) & 0.745 & 0.818 & \textbf{19.10} & 21.33 & 13.36 & 4.21 & 5.3M & 14.6 min \\
+\textbf{A1} & CNN-BiGRU-CTC & 32 (2$\times$16) & \textbf{0.638} & \textbf{0.658} & 19.49 & \textbf{21.05} & \textbf{12.80} & 5.23 & 5.4M & 18.2 min \\
+\midrule
+\textbf{C1} & Left Wrist Only & 16 (1$\times$16) & 1.761 & 2.253 & 60.08 & 60.97 & 9.15 & 50.75 & 3.1M & 15.1 min \\
+\textbf{C2} & Right Wrist Only & 16 (1$\times$16) & 1.541 & 1.580 & 45.86 & 47.96 & 19.81 & 24.94 & 3.1M & 15.2 min \\
+\textbf{C3} & Equidistant Dual & 16 (2$\times$8) & 0.749 & 0.770 & 24.17 & 25.29 & 16.55 & 4.94 & 5.3M & 17.2 min \\
+\textbf{C4} & Sparse Dual & 8 (2$\times$4) & 0.878 & 1.074 & 27.49 & 33.67 & 19.81 & 5.38 & 5.2M & 16.7 min \\
+\midrule
+\multicolumn{11}{l}{\textit{Fixed-Capacity Rotation-Free Clean Controls (5.4M Backbone, Zero-Leakage Masking, 3 Seeds)}} \\
+\textbf{A1-Clean} & Full Dual-Wrist (Clean) & 32 (2$\times$16) & 0.601 & -- & $\mathbf{17.96 \pm 0.37}$ & -- & 11.56 & 4.58 & 5.4M & 18.0 min \\
+\textbf{F3-Clean} & Equidistant Dual (Fixed-Cap) & 16 (2$\times$8) & 0.646 & -- & $20.13 \pm 0.64$ & -- & 13.41 & 4.62 & 5.4M & 18.1 min \\
+\textbf{F1-Clean} & Left Wrist Only (Fixed-Cap) & 16 (1$\times$16) & 1.729 & -- & $52.89 \pm 3.62$ & -- & 13.81 & 38.18 & 5.4M & 18.0 min \\
+\textbf{F2-Clean} & Right Wrist Only (Fixed-Cap) & 16 (1$\times$16) & 1.556 & -- & $47.08 \pm 2.42$ & -- & 16.33 & 29.74 & 5.4M & 18.0 min \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Biomechanical spatial error decomposition across keyboard zones (Left-Hand vs.\ Right-Hand vs.\ Neutral Keys) on Subject \#89335547 validation predictions ($4{,}514$ reference characters). Clean models reflect leak-free, rotation-free Seed 42 evaluation.}
+\label{tab:hand_breakdown}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+\multirow{2}{*}{\textbf{Configuration}} & \multicolumn{2}{c}{\textbf{Left-Hand Keys} ($N=2{,}113$)} & \multicolumn{2}{c}{\textbf{Right-Hand Keys} ($N=1{,}547$)} & \multicolumn{2}{c}{\textbf{Neutral Keys} ($N=854$)} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+& \textbf{CER (\%)} & \textbf{Errors (S / D / I)} & \textbf{CER (\%)} & \textbf{Errors (S / D / I)} & \textbf{CER (\%)} & \textbf{Errors (S / D / I)} \\
+\midrule
+A0 TDS-CNN & 19.26 & 286 / 83 / 38 & 25.47 & 296 / 75 / 23 & 7.14 & 21 / 32 / 8 \\
+A1 CNN-BiGRU & \textbf{18.88} & 273 / 92 / 34 & 26.63 & 290 / 93 / 29 & 8.08 & 15 / 51 / 3 \\
+\midrule
+C1 Left Wrist (16L, 3.1M) & 20.87 & 156 / 280 / 5 & \textbf{97.61} & 169 / 1341 / 0 & 89.11 & 88 / 670 / 3 \\
+C2 Right Wrist (16R, 3.1M) & 73.83 & 592 / 937 / 31 & \textbf{27.80} & 265 / 150 / 15 & 9.37 & 37 / 39 / 4 \\
+C3 Equidistant (8L+8R, 5.3M) & 25.04 & 369 / 103 / 57 & 31.93 & 352 / 95 / 47 & 7.96 & 26 / 25 / 17 \\
+C4 Sparse (4L+4R, 5.2M) & 29.86 & 450 / 121 / 60 & 34.39 & 404 / 96 / 32 & 9.13 & 40 / 26 / 12 \\
+\midrule
+A1-Clean Full (32ch, 5.4M) & \textbf{17.94} & 246 / 90 / 43 & \textbf{24.24} & 271 / 83 / 21 & 7.26 & 25 / 30 / 7 \\
+F3-Clean Dual (8L+8R, 5.4M) & 19.97 & 277 / 102 / 43 & 26.50 & 286 / 88 / 36 & \textbf{5.62} & 15 / 27 / 6 \\
+F1-Clean Left (16L, 5.4M) & 20.35 & 173 / 250 / 7 & \textbf{92.95} & 192 / 1242 / 4 & 82.90 & 92 / 611 / 5 \\
+F2-Clean Right (16R, 5.4M) & 85.99 & 341 / 1467 / 9 & 23.40 & 176 / 177 / 9 & 8.20 & 27 / 39 / 4 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Architectural Comparison: TDS-CNN vs. CNN-BiGRU-CTC}
+Table~\ref{tab:main_results} compares the baseline TDS-CNN against the proposed CNN-BiGRU-CTC architecture under identical frontend processing and optimization schedules. With closely matched parameter counts ($5.3\text{M}$ for TDS-CNN vs.\ $5.4\text{M}$ for CNN-BiGRU), this comparison evaluates their respective temporal inductive biases:
+\begin{itemize}
+    \item \textbf{Loss vs.\ CER Behavior}: CNN-BiGRU reaches a lower validation CTC loss ($\mathbf{0.638}$ vs.\ $0.745$), indicating sharper emission probability along alignment paths. However, this lower loss does not translate into a lower Character Error Rate ($19.49\%$ for CNN-BiGRU vs.\ $\mathbf{19.10\%}$ for TDS-CNN). This reflects the familiar divergence between continuous marginal negative log-likelihood under CTC and discrete Levenshtein edit distance evaluated during decoding.
+    \item \textbf{Error Profiles}: CNN-BiGRU attains lower substitution ($\mathbf{12.80\%}$ vs.\ $13.36\%$) and insertion rates ($\mathbf{1.46\%}$ vs.\ $1.53\%$). Conversely, TDS-CNN produces fewer deletions ($4.21\%$ vs.\ $5.23\%$), consistent with 1D temporal convolutions preserving local continuity across brief emission gaps.
+    \item \textbf{Keyboard Zone Accuracy}: As reported in Table~\ref{tab:hand_breakdown}, CNN-BiGRU achieves slightly lower error on dominant left-hand keys ($\mathbf{18.88\%}$ vs.\ $19.26\%$), whereas TDS-CNN performs marginally better on right-hand keys ($25.47\%$ vs.\ $26.63\%$). Overall validation CER remains close, with TDS-CNN holding a $0.39\%$ margin.
+    \item \textbf{Multi-Seed Stability}: Across three independent seeds (42, 123, 2026), TDS-CNN achieves $19.20 \pm 0.32\%$ validation CER ($18.94\%$, $19.10\%$, $19.56\%$) and CNN-BiGRU achieves $19.34 \pm 0.19\%$ ($19.12\%$, $19.41\%$, $19.49\%$). Standard deviations reflect sample standard deviations ($N=3, \text{ddof}=1$; population standard deviations with $\text{ddof}=0$ are $\pm 0.26\%$ and $\pm 0.16\%$). Neither architecture demonstrates a clear accuracy advantage. This comparison operates under the baseline protocol with band rotation, and remains distinct from the rotation-free ablations in Section~\ref{sec:decimation}.
+    \item \textbf{Computational Footprint and Latency}: Peak GPU memory usage is comparable ($1{,}048.2\text{ MB}$ vs.\ $1{,}065.6\text{ MB}$), but CNN-BiGRU takes $\sim 24\%$ longer to train per run ($18.0\text{ min}$ vs.\ $14.5\text{ min}$ on a Tesla V100 GPU). Additionally, during continuous unwindowed inference ($T=140{,}760$ frames), bidirectional recurrent state propagation precludes feedforward chunking, adding sequential latency without improving overall CER.
+\end{itemize}
+
+\subsection{Physical Channel Decimation and Spatial Diversity}
+\label{sec:decimation}
+To assess sensor layout and electrode redundancy, configurations C1--C4 and F1--F3 provide several direct comparisons:
+
+\paragraph{Unilateral Sensing and Observed Information Limitation}:
+Single-wrist sensing degrades substantially during continuous two-handed typing. In C1 (left wrist only), validation CER increases to $\mathbf{60.08\%}$. Table~\ref{tab:hand_breakdown} reveals the underlying distribution: while ipsilateral left-hand keys decode at $20.87\%$ CER (tracking the dual-wrist baseline), contralateral right-hand keys suffer severe omission: $1{,}341$ of $1{,}547$ characters ($86.68\%$) are dropped as deletions, with $169$ substitutions and zero insertions, yielding a conditional CER of $97.61\%$. Without sensors on the right arm, the left-wrist array captures insufficient task-relevant signal for right-hand keypresses, causing CTC alignment to emit blank tokens.
+
+A symmetric pattern appears in C2 (right wrist only): right-hand keys reach $27.80\%$ CER, while contralateral left-hand keys degrade to $73.83\%$ CER ($937$ deletions). C2 attains lower overall CER than C1 ($45.86\%$ vs.\ $60.08\%$) primarily because the participant used the right thumb for the Space bar, which falls under neutral keys (where C2 achieved $9.37\%$ CER compared to $89.11\%$ for C1).
+
+\paragraph{Controlled Comparison under Matched Capacity and Augmentation Protocol}:
+Because C1 and C2 contain fewer parameters ($3.1\text{M}$) than C3 and A1 ($5.3\text{M}$--$5.4\text{M}$), nominal network capacity could act as a confound. To evaluate electrode placement under controlled conditions, we trained A1-Clean (32ch full), F1-Clean, F2-Clean, and F3-Clean with the identical $5{,}422{,}944$-parameter CNN-BiGRU backbone and rotation-free protocol across seeds 42, 123, and 2026:
+\begin{align}
+    \text{CER}_{\text{val}}(\text{A1-Clean: 32ch, 5.4M}) &= \mathbf{17.96 \pm 0.37\%} \notag \\
+    \text{CER}_{\text{val}}(\text{F3-Clean: 8L+8R, 5.4M}) &= 20.13 \pm 0.64\% \notag \\
+    \text{CER}_{\text{val}}(\text{F1-Clean: 16L, 5.4M}) &= 52.89 \pm 3.62\% \notag \\
+    \text{CER}_{\text{val}}(\text{F2-Clean: 16R, 5.4M}) &= 47.08 \pm 2.42\%
+\end{align}
+Under this controlled comparison, halving active sensors from 32 to 16 channels bilaterally increases validation CER by an average of $+2.17$ percentage points ($17.96\% \to 20.13\%$). Calculating the paired seed-by-seed difference $\Delta_s = \text{CER}_{\text{F3}, s} - \text{CER}_{\text{Full32}, s}$ across seeds 42, 123, and 2026 gives $\Delta_s = +2.17 \pm 0.65\text{ pp}$ ($+1.42\text{ pp}$, $+2.53\text{ pp}$, and $+2.57\text{ pp}$, sample std $ddof=1$). In contrast, concentrating all 16 electrodes on a single wrist leads to steep validation error degradation ($52.89\%$ for F1, $47.08\%$ for F2). Even with 5.4M parameters, unilateral models show high contralateral omission: F1 incurs $89.29 \pm 3.24\%$ conditional CER on right-hand keys ($977$--$1{,}242$ deletions out of $1{,}547$ characters), and F2 incurs $78.88 \pm 6.22\%$ on left-hand keys ($994$--$1{,}467$ deletions). These observations indicate that bilateral spatial distribution is essential for two-handed typing under this protocol, and that increased model capacity cannot compensate for absent contralateral sensory input.
+
+\paragraph{Sparse Bilateral Sensing}:
+Reducing the sensor budget to $4$ electrodes per wrist (C4, $8$ channels total, $5.2\text{M}$ parameters) yields $\mathbf{27.49\%}$ validation CER, which meets the course $30\%$ target within the validation session. However, cross-session generalization requires higher density, as examined below.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Cross-Session Generalization Dynamics: C3 vs.\ F3 vs.\ C4}
+Our evaluation on the held-out test session provides perspective on sensor representation and cross-session stability:
+
+\paragraph{Decimation Representation: Physical Slicing (C3) vs.\ Channel Masking (F3)}:
+In exploratory trials with legacy masking, C3 (physical slicing, $5.3\text{M}$ parameters) and F3 (channel masking, $5.4\text{M}$ backbone) converged to similar error rates on the frozen test session ($25.29\%$ for C3 vs.\ $25.11\%$ for legacy F3), despite F3 achieving lower validation error ($20.67\%$). Clean retrained models (F3 Clean: $20.13 \pm 0.64\%$ validation CER across three seeds) were kept strictly on the validation split to preserve test set isolation. We attribute the representation difference observed between physical slicing and masking to two factors: (1) \textit{Nominal vs.\ Effective Capacity}: The full 768-dimensional input projection provides more parameter degrees of freedom to fit validation session statistics; and (2) \textit{Normalization Statistics}: Zero-masked channels alter running statistics in \texttt{SpectrogramNorm} relative to physical decimation. Importantly, both decimation methods show that bilateral 8+8 coverage is substantially more effective than unilateral 16 channels.
+
+\paragraph{Stability Bound in Sparse Arrays (C4)}:
+In C4 ($4\text{L}+4\text{R}$), validation CER ($27.49\%$) degrades to $33.67\%$ on the test session, producing a generalization gap of $\mathbf{+6.18\%}$ CER (compared to $+1.12\%$ for C3). In dense 16-channel arrays, adjacent sensors capture overlapping motor unit action potential (MUAP) signals across finger flexor and extensor compartments. A 4-channel array lacks this spatial redundancy. Subtle inter-session electrode shifts or typing variations consequently hinder trajectory reconstruction. Under this circumferential layout and protocol, 8+8 channels (C3/F3) offer noticeably more reliable cross-session decoding than 4+4 channels.
+
+\subsection{Keystroke Error Analysis}
+Detailed Levenshtein error breakdowns indicate two consistent patterns:
+\begin{enumerate}
+    \item \textbf{Contralateral Information Limitation}: In unilateral setups, the lack of opposite-wrist electrodes deprives the model of task-relevant signals during contralateral keystrokes. Consequently, the CTC decoder emits blank tokens, resulting in high deletion rates ($86.68\%$--$88.24\%$) rather than substitution errors.
+    \item \textbf{Peripheral Keystroke Vulnerability}: Deletion errors concentrate on peripheral keys (such as 'p', 'q', 'z', and backspace). This may reflect smaller muscle volume and lower motor unit recruitment in the extensor digiti minimi relative to the larger flexor digitorum superficialis and profundus engaged during central index and middle finger strikes.
+\end{enumerate}
+
+\subsection{Implications for Wearable Interfaces}
+These results suggest two practical takeaways for wearable neural interface design:
+\begin{enumerate}
+    \item \textbf{Bilateral Sensing for Bimanual Input}: Without contralateral surface sensors, unilateral setups incur severe omission rates on opposite-hand keys that cannot be overcome by model capacity alone.
+    \item \textbf{Empirical Density Lower Bound}: For this subject and protocol, 8 electrodes per wrist served as an empirical lower bound for stable cross-session decoding, whereas 4 electrodes per wrist showed marked degradation across sessions.
+\end{enumerate}
+
+\clearpage
+\section*{Contribution Statement}
+Frank was responsible for the entire project implementation, theoretical auditing, experimental execution, data pipeline design, and manuscript preparation. This included implementing the \texttt{CNNBiGRUCTCModule}, deriving the CTC duplicate alignment condition, conducting physical channel ablations on the Debian Tesla V100 GPU cluster, implementing the Levenshtein error analysis engine, and drafting the final research report.
+
+\section*{AI Usage Statement}
+In accordance with course policy, AI-assisted tools (Google Antigravity Agent) were utilized during this project for codebase exploration, bash automation, verification script design, and LaTeX manuscript drafting. All experimental code, architectural implementations, and scientific conclusions were conceived, executed, and verified by the author.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

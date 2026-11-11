@@ -1,0 +1,14 @@
+{
+  "val_metrics": [
+    {
+      "val/loss": 0.5927863717079163,
+      "val/CER": 17.545413970947266,
+      "val/IER": 5.117412567138672,
+      "val/DER": 1.9494904279708862,
+      "val/SER": 10.478510856628418
+    }
+  ],
+  "test_metrics": null,
+  "best_checkpoint": "/srv/homelab-bulk/ece147/emg2qwerty/results/A1_CNN_BiGRU_Clean_seed2026/checkpoints/epoch=32-step=7920.ckpt",
+  "peak_vram_mb": 1048.03076171875
+}

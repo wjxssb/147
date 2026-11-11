@@ -1,0 +1,11 @@
+{
+  "experiment_id": "F1_Left_16ch_FixedCap",
+  "seed": 2026,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1078.6489062309265,
+  "training_time_minutes": 17.977481770515443,
+  "peak_vram_mb": 1048.021484375,
+  "completed_at": "2026-11-11 00:00:00"
+}

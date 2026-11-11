@@ -1,0 +1,14 @@
+{
+  "val_metrics": [
+    {
+      "val/loss": 1.5177346467971802,
+      "val/CER": 45.259193420410156,
+      "val/IER": 26.517501831054688,
+      "val/DER": 1.8165706396102905,
+      "val/SER": 16.925121307373047
+    }
+  ],
+  "test_metrics": null,
+  "best_checkpoint": "/srv/homelab-bulk/ece147/emg2qwerty/results/F2_Right_16ch_Clean_seed123/checkpoints/epoch=32-step=7920.ckpt",
+  "peak_vram_mb": 1048.04833984375
+}

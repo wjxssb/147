@@ -1,0 +1,14 @@
+- user=single_user
+- seed=42
+- batch_size=16
+- trainer.max_epochs=35
+- trainer.accelerator=gpu
+- trainer.devices=1
+- trainer.gradient_clip_val=1.0
+- evaluate_test=false
+- model=cnn_bigru_ctc
+- module.in_features=528
+- module.num_bands=2
+- module.electrode_channels=16
+- channel_mask.keep_bands=[0]
+- band_rotation.transform.offsets=[0]

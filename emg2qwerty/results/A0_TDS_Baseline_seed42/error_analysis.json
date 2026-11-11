@@ -1,0 +1,32 @@
+{
+  "overall": {
+    "total_ref_chars": 4514,
+    "CER": 0.1909614532565352,
+    "sub_rate": 0.13358440407620736,
+    "del_rate": 0.04209127159946832,
+    "ins_rate": 0.015285777580859548,
+    "substitutions": 603,
+    "deletions": 190,
+    "insertions": 69
+  },
+  "left_hand_keys": {
+    "ref_chars": 2113,
+    "CER": 0.1926171320397539,
+    "sub": 286,
+    "del": 83,
+    "ins": 38
+  },
+  "right_hand_keys": {
+    "ref_chars": 1547,
+    "CER": 0.2546864899806076,
+    "sub": 296,
+    "del": 75,
+    "ins": 23
+  },
+  "neutral_keys": {
+    "ref_chars": 854,
+    "sub": 21,
+    "del": 32,
+    "ins": 8
+  }
+}

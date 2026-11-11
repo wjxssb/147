@@ -1,0 +1,11 @@
+{
+  "experiment_id": "F1_Left_16ch_Clean",
+  "seed": 42,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1078.8877429962158,
+  "training_time_minutes": 17.981462383270262,
+  "peak_vram_mb": 1047.880859375,
+  "completed_at": "2026-11-11 02:08:05"
+}

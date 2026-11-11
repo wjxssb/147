@@ -1,0 +1,11 @@
+{
+  "experiment_id": "F3_Dual_8ch_FixedCap",
+  "seed": 2026,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1087.7289743423462,
+  "training_time_minutes": 18.128816239039104,
+  "peak_vram_mb": 1048.0234375,
+  "completed_at": "2026-11-10 23:23:59"
+}

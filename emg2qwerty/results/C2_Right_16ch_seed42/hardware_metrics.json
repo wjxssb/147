@@ -1,0 +1,11 @@
+{
+  "experiment_id": "C2_Right_16ch",
+  "seed": 42,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 909.5904448032379,
+  "training_time_minutes": 15.159840746720631,
+  "peak_vram_mb": 728.2861328125,
+  "completed_at": "2026-11-10 07:41:20"
+}

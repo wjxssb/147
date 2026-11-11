@@ -1,0 +1,11 @@
+{
+  "experiment_id": "A1_CNN_BiGRU_Clean",
+  "seed": 2026,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 1079.977514743805,
+  "training_time_minutes": 17.999625245730083,
+  "peak_vram_mb": 1048.03076171875,
+  "completed_at": "2026-11-11 04:39:30"
+}

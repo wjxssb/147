@@ -1,0 +1,11 @@
+{
+  "experiment_id": "C4_Dual_4ch",
+  "seed": 42,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 999.9947438240051,
+  "training_time_minutes": 16.66657906373342,
+  "peak_vram_mb": 897.4658203125,
+  "completed_at": "2026-11-10 08:15:11"
+}

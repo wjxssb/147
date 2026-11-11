@@ -1,0 +1,12 @@
+- user=single_user
+- train=False
+- evaluate_test=True
+- checkpoint='/srv/homelab-bulk/ece147/emg2qwerty/results/F3_Dual_8ch_FixedCap_seed42/checkpoints/epoch=31-step=7680.ckpt'
+- trainer.accelerator=gpu
+- trainer.devices=1
+- trainer.default_root_dir=/srv/homelab-bulk/ece147/emg2qwerty/results/F3_Dual_8ch_FixedCap_seed42
+- model=cnn_bigru_ctc
+- module.in_features=528
+- module.num_bands=2
+- module.electrode_channels=16
+- channel_mask.keep_electrodes=[0,2,4,6,8,10,12,14]

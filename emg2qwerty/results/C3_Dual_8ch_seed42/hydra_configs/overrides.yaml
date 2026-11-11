@@ -1,0 +1,12 @@
+- user=single_user
+- train=False
+- evaluate_test=True
+- checkpoint='/srv/homelab-bulk/ece147/emg2qwerty/results/C3_Dual_8ch_seed42/checkpoints/epoch=34-step=8400.ckpt'
+- trainer.accelerator=gpu
+- trainer.devices=1
+- trainer.default_root_dir=/srv/homelab-bulk/ece147/emg2qwerty/results/C3_Dual_8ch_seed42
+- model=cnn_bigru_ctc
+- module.in_features=264
+- module.num_bands=2
+- module.electrode_channels=8
+- to_tensor.indices=[0,2,4,6,8,10,12,14]

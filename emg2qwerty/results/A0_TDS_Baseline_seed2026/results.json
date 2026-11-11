@@ -1,0 +1,14 @@
+{
+  "val_metrics": [
+    {
+      "val/loss": 0.7766445875167847,
+      "val/CER": 19.561365127563477,
+      "val/IER": 4.209126949310303,
+      "val/DER": 2.1488702297210693,
+      "val/SER": 13.203367233276367
+    }
+  ],
+  "test_metrics": null,
+  "best_checkpoint": "/srv/homelab-bulk/ece147/emg2qwerty/results/A0_TDS_Baseline_seed2026/checkpoints/epoch=31-step=7680.ckpt",
+  "peak_vram_mb": 1065.052734375
+}

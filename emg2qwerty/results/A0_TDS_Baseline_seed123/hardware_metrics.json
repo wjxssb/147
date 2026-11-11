@@ -1,0 +1,11 @@
+{
+  "experiment_id": "A0_TDS_Baseline",
+  "seed": 123,
+  "epochs": 35,
+  "batch_size": 16,
+  "device": "gpu",
+  "training_time_seconds": 864.3785784244537,
+  "training_time_minutes": 14.406309640407562,
+  "peak_vram_mb": 1065.521484375,
+  "completed_at": "2026-11-10 19:53:46"
+}

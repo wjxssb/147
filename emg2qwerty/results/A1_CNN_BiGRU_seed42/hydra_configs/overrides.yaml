@@ -1,0 +1,11 @@
+- user=single_user
+- train=False
+- evaluate_test=True
+- checkpoint='/srv/homelab-bulk/ece147/emg2qwerty/results/A1_CNN_BiGRU_seed42/checkpoints/epoch=33-step=8160.ckpt'
+- trainer.accelerator=gpu
+- trainer.devices=1
+- trainer.default_root_dir=/srv/homelab-bulk/ece147/emg2qwerty/results/A1_CNN_BiGRU_seed42
+- model=cnn_bigru_ctc
+- module.in_features=528
+- module.num_bands=2
+- module.electrode_channels=16

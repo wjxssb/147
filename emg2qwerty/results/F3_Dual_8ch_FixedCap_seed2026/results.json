@@ -1,0 +1,14 @@
+{
+  "val_metrics": [
+    {
+      "val/loss": 0.6854063272476196,
+      "val/CER": 21.400089263916016,
+      "val/IER": 4.740806579589844,
+      "val/DER": 2.9242358207702637,
+      "val/SER": 13.73504638671875
+    }
+  ],
+  "test_metrics": null,
+  "best_checkpoint": "/srv/homelab-bulk/ece147/emg2qwerty/results/F3_Dual_8ch_FixedCap_seed2026/checkpoints/epoch=31-step=7680.ckpt",
+  "peak_vram_mb": 1048.0234375
+}
