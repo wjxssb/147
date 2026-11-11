@@ -61,46 +61,50 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         self.test_transform = test_transform
 
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = ConcatDataset(
-            [
-                WindowedEMGDataset(
-                    hdf5_path,
-                    transform=self.train_transform,
-                    window_length=self.window_length,
-                    padding=self.padding,
-                    jitter=True,
-                )
-                for hdf5_path in self.train_sessions
-            ]
-        )
-        self.val_dataset = ConcatDataset(
-            [
-                WindowedEMGDataset(
-                    hdf5_path,
-                    transform=self.val_transform,
-                    window_length=self.window_length,
-                    padding=self.padding,
-                    jitter=False,
-                )
-                for hdf5_path in self.val_sessions
-            ]
-        )
-        self.test_dataset = ConcatDataset(
-            [
-                WindowedEMGDataset(
-                    hdf5_path,
-                    transform=self.test_transform,
-                    # Feed the entire session at once without windowing/padding
-                    # at test time for more realism
-                    window_length=None,
-                    padding=(0, 0),
-                    jitter=False,
-                )
-                for hdf5_path in self.test_sessions
-            ]
-        )
+        if stage in (None, "fit"):
+            self.train_dataset = ConcatDataset(
+                [
+                    WindowedEMGDataset(
+                        hdf5_path,
+                        transform=self.train_transform,
+                        window_length=self.window_length,
+                        padding=self.padding,
+                        jitter=True,
+                    )
+                    for hdf5_path in self.train_sessions
+                ]
+            )
+            self.val_dataset = ConcatDataset(
+                [
+                    WindowedEMGDataset(
+                        hdf5_path,
+                        transform=self.val_transform,
+                        window_length=self.window_length,
+                        padding=self.padding,
+                        jitter=False,
+                    )
+                    for hdf5_path in self.val_sessions
+                ]
+            )
+        if stage in (None, "test"):
+            self.test_dataset = ConcatDataset(
+                [
+                    WindowedEMGDataset(
+                        hdf5_path,
+                        transform=self.test_transform,
+                        # Feed the entire session at once without windowing/padding
+                        # at test time for more realism
+                        window_length=None,
+                        padding=(0, 0),
+                        jitter=False,
+                    )
+                    for hdf5_path in self.test_sessions
+                ]
+            )
 
     def train_dataloader(self) -> DataLoader:
+        if not hasattr(self, "train_dataset") or self.train_dataset is None:
+            self.setup("fit")
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -112,6 +116,8 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self) -> DataLoader:
+        if not hasattr(self, "val_dataset") or self.val_dataset is None:
+            self.setup("fit")
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
@@ -127,6 +133,8 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         # fed at once. Limit batch size to 1 to fit within GPU memory and
         # avoid any influence of padding (while collating multiple batch items)
         # in test scores.
+        if not hasattr(self, "test_dataset") or self.test_dataset is None:
+            self.setup("test")
         return DataLoader(
             self.test_dataset,
             batch_size=1,

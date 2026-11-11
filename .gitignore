@@ -28,3 +28,7 @@ results/**/checkpoints/
 .vscode/
 *.swp
 *~
+
+# Deliverables
+归档交付包/
+*.zip

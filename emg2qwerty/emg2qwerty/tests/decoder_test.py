@@ -8,9 +8,8 @@ import hashlib
 from collections import OrderedDict
 from pathlib import Path
 
-import kenlm
-import numpy as np
 import pytest
+kenlm = pytest.importorskip("kenlm")
 import scipy.special
 from hypothesis import given, strategies as st
 

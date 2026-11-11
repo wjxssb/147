@@ -66,44 +66,56 @@
 ## 四、目录结构与交付文件索引
 
 ```
-Final_Project/
-├── final_paper.pdf              # 最终 8 页定稿论文 PDF (NeurIPS 2024 排版, 实体物理文件)
-├── SUBMISSION_CHECKLIST.md      # 提交终验 8/8 全项 PASS 报告
-├── FINAL_AUDIT.md               # 阶段一至阶段五全套科研真实性审计报告
-├── MASK_ORDER_AUDIT.md          # 通道污染排查、数学反例证明与重训归档
-├── ECE147_Final_Project_Handout.pdf # 课程官方 Handout #18 (问题陈述与提交规范)
-├── paper/                       # 论文工程目录
-│   ├── main.pdf                 # NeurIPS 2024 正式排版 PDF (8 页, 0 Overfull 警告)
-│   ├── main.tex                 # 论文 LaTeX 源码
-│   ├── neurips_2024.sty         # NeurIPS 官方宏包
-│   └── references.bib           # 参考文献 BibTeX 数据库
-├── emg2qwerty/                  # 核心算法实现库
-│   ├── emg2qwerty/              # 模块代码 (CNN-BiGRU, MaskChannels, CTC 守恒)
-│   ├── tests/                   # 包含 channel_invariance_test 等不可回归自动化单测
-│   └── results/                 # 全量实验原始 Checkpoint、预测与评测 JSON 结果
-├── scripts/                     # 验证与测试工具箱
-│   ├── audit_stage1.py          # 真实性动态规划重算工具
-│   ├── evaluate_frozen_test.py  # 严格隔离测试集评测工具
-│   └── gpu_smoke_test.py        # GPU 排除通道不变性冒烟测试
-└── patchkit/                    # 研究覆盖包归档
+147/
+├── .github/workflows/testing.yml   # GitHub Actions 自动化 CI 测试流水线
+├── pytest.ini                      # 根目录一键 pytest 配置
+├── final_paper.pdf                 # 最终 8 页定稿论文 PDF (NeurIPS 2024 正式排版, 实体独立文件)
+├── ECE147_Final_Project_Handout.pdf# 课程官方 Project #18 指南
+├── SUBMISSION_CHECKLIST.md         # 交付终验 8/8 全项 PASS 报告
+├── FINAL_AUDIT.md                  # 阶段一至阶段五全套科研真实性审计报告
+├── MASK_ORDER_AUDIT.md             # 通道污染排查、数学反例证明与重训归档
+├── paper/                          # 论文工程目录
+│   ├── main.pdf                    # NeurIPS 2024 排版 PDF (8 页, 0 Overfull 警告)
+│   ├── main.tex                    # 论文 LaTeX 源码 (含详细贡献与 AI 使用披露)
+│   ├── neurips_2024.sty            # NeurIPS 官方宏包
+│   └── references.bib              # 参考文献 BibTeX 数据库
+├── emg2qwerty/                     # 核心算法实现库
+│   ├── emg2qwerty/                 # 模块代码 (CNN-BiGRU, MaskChannels, CTC 守恒, 数据流隔离)
+│   ├── emg2qwerty/tests/           # 包含 channel_invariance_test 等不可回归自动化单测
+│   ├── config/                     # Hydra 实验配置 (Clean 纯净系列, C 系列, A 系列)
+│   └── results/                    # 全量实验指标 JSON、预测文本、训练日志及 Checkpoint 权重
+├── scripts/                        # 验证与测试工具箱 (位于根目录，可直接调用)
+│   ├── download_single_user.py     # 自动化从 Zenodo 拉取单受试者全量数据
+│   ├── gpu_smoke_test.py           # GPU 排除通道不变性冒烟测试
+│   ├── evaluate_frozen_test.py     # 严格隔离测试集评测工具
+│   └── audit_stage1.py             # 动态规划 CER 重算与错误分解工具
+└── patchkit/                       # 研究覆盖包归档
     ├── ece147_final_project_research_overlay.zip
     └── README_RESEARCH_PATCHKIT.md
 ```
 
 ---
 
-## 五、复现与验证命令 (Quick Commands)
+## 五、跨平台一键复现指南 (Quick Reproduction from Root)
+
+在任何新机器或全新 Clone 的环境下，直接在仓库根目录执行：
 
 ```bash
-# 1. 运行排除通道绝对不变性回归测试 (6 tests)
-pytest emg2qwerty/tests/channel_invariance_test.py -v
+# 1. 创建虚拟环境并安装依赖
+python3 -m venv venv
+source venv/bin/activate
+pip install -r emg2qwerty/requirements.txt
+pip install -e emg2qwerty
 
-# 2. 运行完整自动化测试套件 (38 tests)
-pytest emg2qwerty/tests/channel_invariance_test.py emg2qwerty/tests/charset_test.py emg2qwerty/tests/data_test.py
+# 2. 一键运行 38 项自动化单元测试与通道不变性测试
+pytest
 
-# 3. 运行 GPU 端到端冒烟测试
+# 3. 运行 GPU 排除通道绝对不变性冒烟测试 (Smoke Test)
 python scripts/gpu_smoke_test.py
 
-# 4. 重新编译论文 PDF
+# 4. 一键自动拉取单受试者数据 (若需重新训练)
+python scripts/download_single_user.py
+
+# 5. 重新编译论文 PDF
 cd paper && tectonic main.tex
 ```
